@@ -4,9 +4,10 @@ import discord
 import youtube_dl
 from discord.ext import commands
 from async_timeout import timeout
-import  random
+import random
 from Constants import *
 from help_cmd import Help
+from keep_alive import keep_alive
 
 youtube_dl.utils.bug_reports_message = lambda: ''
 
@@ -568,6 +569,8 @@ async def on_message(message):
 
 bot.add_cog(Music())
 bot.add_cog(Help(bot))
+
+keep_alive()
 bot.run(DISCORD_TOKEN)
 
 

@@ -1,7 +1,7 @@
 from discord import Embed
 from discord import Color
 from dotenv import load_dotenv
-from os import getenv
+from os import getenv, environ
 
 """==================Colors=================="""
 green = Color.green()
@@ -69,7 +69,10 @@ ADI_DURATION = {ADI: 31,
 
 
 """==================Token=================="""
-load_dotenv()
-# Get the API token from the .env file.
-DISCORD_TOKEN = getenv("DISCORD_TOKEN")
+
+DISCORD_TOKEN = environ['discord_token']
+
+# load_dotenv()
+# # Get the API token from the .env file.
+# DISCORD_TOKEN = getenv("DISCORD_TOKEN")
 
