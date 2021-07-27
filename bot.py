@@ -1,10 +1,3 @@
-"""
-Created By:
-Yarden
-Lev
-"""
-
-
 import asyncio
 import itertools
 import os
@@ -290,6 +283,7 @@ class Music(commands.Cog):
         player = self.get_player(ctx)
         player.queue._queue.clear()
         self.nightcore = False
+        self.tones = False
 
     """-------------Music-------------"""
 
@@ -300,7 +294,7 @@ class Music(commands.Cog):
             async with ctx.typing():
                 player = self.get_player(ctx)
 
-                await player.queue.put((YTDLSource.from_url, url, self.bot.loop, not self.tones, not self.nightcore))
+                await player.queue.put((YTDLSource.from_url, url, self.bot.loop, self.tones, not self.nightcore))
 
                 if send:
                     embed = Embed(title='', description=f'Queued [{url}].', color=green)
