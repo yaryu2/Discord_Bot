@@ -13,8 +13,6 @@ youtube_dl.utils.bug_reports_message = lambda: ''
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 
-now_playing_id = ''
-
 
 def secs_to_hms(total_seconds: float) -> str:
     seconds = total_seconds % (24 * 3600)
@@ -87,7 +85,8 @@ class MusicPlayer:
     When the bot disconnects from the Voice it's instance will be destroyed.
     """
 
-    __slots__ = ('bot', '_guild', '_channel', '_cog', 'queue', 'next', 'current', 'np', 'volume', 'np')
+    __slots__ = ('bot', '_guild', '_channel', '_cog', 'queue', 'next', 'current', 'np', 'volume', 'np', 'nightcore',
+                 'tones')
 
     def __init__(self, ctx):
         self.bot = ctx.bot
@@ -101,6 +100,9 @@ class MusicPlayer:
         self.np = None
         self.volume = .5
         self.current = None
+
+        self.nightcore = False
+        self.tones = False
 
         ctx.bot.loop.create_task(self.player_loop())
 
@@ -118,16 +120,6 @@ class MusicPlayer:
             except asyncio.TimeoutError:
                 pass
 
-            # if not isinstance(source, YTDLSource):
-            #     # Source was probably a stream (not downloaded)
-            #     # So we should regather to prevent stream expiration
-            #     try:
-            #         source = await YTDLSource.from_url(source, loop=self.bot.loop, stream=not self.bot.get_nightcore)
-            #     except Exception as e:
-            #         await self._channel.send(f'There was an error processing your song.\n'
-            #                                  f'```css\n[{e}]\n```')
-            #         continue
-
             func, *args, tones, stream = item
             source = await func(*args, tones=tones, stream=stream)
 
@@ -140,13 +132,10 @@ class MusicPlayer:
                           description=f"[{source.title}]",
                           color=green)
 
-            global now_playing_id
-            if now_playing_id:
-                msg = await self._channel.fetch_message(now_playing_id)
-                await msg.delete()
+            if self.np:
+                await self.np.delet()
 
             self.np = await self._channel.send(embed=embed)
-            now_playing_id = self.np.id
 
             await self.next.wait()
 
@@ -163,9 +152,6 @@ class Music(commands.Cog):
         self.nightcore = False
         self.tones = False
         self.change = '+3'
-
-    def stream(self):
-        return not self.nightcore and not self.tones
 
     def get_player(self, ctx):
         """Retrieve the guild player, or generate one."""
@@ -185,40 +171,38 @@ class Music(commands.Cog):
     @commands.command()
     async def adi(self, ctx):
         """Adds the best song ever in some variation to the top of the queue. יא כוסית שאת."""
-        prev_nc = self.nightcore
+        player = self.get_player(ctx)
+
         remix = 'remix' in ctx.message.content
         nc = 'nc' in ctx.message.content
 
-        self.nightcore = nc
-
-        player = self.get_player(ctx)
         name = ADI_LIST[2 * remix + nc]
         name = name[name.rfind('/') + 1: name.rfind('.')]
         name = name.replace('_', ' ').replace('a', 'A').replace('n', 'N').replace('r', 'R')
-        player.queue._queue.insert(0, (YTDLSource.adi, name, self.bot.loop, not self.tones, not self.nightcore))
+        player.queue._queue.insert(0, (YTDLSource.adi, name, player.bot.loop, not player.tones, not nc))
 
-        self.nightcore = prev_nc
-
-        if now_playing_id:
+        if player.np:
             await self.queue_info(ctx)
 
     @commands.command(name='nightcore', aliases=['nc'])
     async def nightcore_(self, ctx):
         """Play songs as a nightcore mode"""
-        self.nightcore = not self.nightcore
+        player = self.get_player(ctx)
+        player.nightcore = not player.nightcore
         await ctx.send(embed=Embed(title='',
-                                   description=f'Nightcore has been **{["disabled", "enabled"][self.nightcore]}.**',
+                                   description=f'Nightcore has been **{["disabled", "enabled"][player.nightcore]}.**',
                                    color=green))
-        await ctx.message.add_reaction(f'{["🌞", "🌛"][self.nightcore]}')
+        await ctx.message.add_reaction(f'{["🌞", "🌛"][player.nightcore]}')
 
     @commands.command()
     async def tones(self, ctx):
         """Play songs as a nightcore mode + Add a tones to the songs"""
-        self.tones = not self.tones
+        player = self.get_player(ctx)
+        player.tones = not player.tones
         await ctx.send(embed=Embed(title='',
-                                   description=f'Tones has been **{["disabled", "enabled"][self.tones]}.**',
+                                   description=f'Tones has been **{["disabled", "enabled"][player.tones]}.**',
                                    color=green))
-        await ctx.message.add_reaction(f'{["🔕", "🎶"][self.tones]}')
+        await ctx.message.add_reaction(f'{["🔕", "🎶"][player.tones]}')
 
     @commands.command()
     async def join(self, ctx):
@@ -278,8 +262,8 @@ class Music(commands.Cog):
 
         player = self.get_player(ctx)
         player.queue._queue.clear()
-        self.nightcore = False
-        self.tones = False
+        player.nightcore = False
+        player.tones = False
 
     """-------------Music-------------"""
 
@@ -290,7 +274,7 @@ class Music(commands.Cog):
             async with ctx.typing():
                 player = self.get_player(ctx)
 
-                await player.queue.put((YTDLSource.from_url, url, self.bot.loop, self.tones, not self.nightcore))
+                await player.queue.put((YTDLSource.from_url, url, player.bot.loop, player.tones, not player.nightcore))
 
                 if send:
                     embed = Embed(title='', description=f'Queued [{url}].', color=green)
