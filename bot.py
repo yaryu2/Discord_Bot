@@ -1,12 +1,10 @@
 import asyncio
 import itertools
-import os
-from dotenv import load_dotenv
 import discord
 import youtube_dl
 from discord.ext import commands
 from async_timeout import timeout
-import random
+import  random
 from Constants import *
 from help_cmd import Help
 
@@ -47,6 +45,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @classmethod
     async def from_url(cls, url, loop=None, change='+3', tones=False, stream=False):
+        import os
         loop = loop or asyncio.get_event_loop()
         data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
 
@@ -169,13 +168,7 @@ class Music(commands.Cog):
 
     def get_player(self, ctx):
         """Retrieve the guild player, or generate one."""
-        try:
-            player = self.players[ctx.guild.id]
-        except KeyError:
-            player = MusicPlayer(ctx)
-            self.players[ctx.guild.id] = player
-
-        return player
+        return self.players.setdefault(ctx.guild.id, MusicPlayer(ctx))
 
     """-------------commands-------------"""
 
@@ -230,7 +223,9 @@ class Music(commands.Cog):
     async def join(self, ctx):
         """Joins a voice channel"""
         if not ctx.author.voice:
-            await ctx.send('You are not connected to a voice channel.')
+            await ctx.send(embed=Embed(title='',
+                                       description='You are not connected to a voice channel.',
+                                       color=red))
             raise commands.CommandError('Author not connected to a voice channel.')
 
         channel = ctx.author.voice.channel
@@ -306,12 +301,12 @@ class Music(commands.Cog):
         if ctx.voice_client is None:
             if ctx.author.voice:
                 self.players = {}
-                await ctx.author.voice.channel.connect()
-            else:
-                await ctx.send(embed=Embed(title='',
-                                           description="You are not connected to a voice channel.",
-                                           color=red))
-                raise commands.CommandError("Author not connected to a voice channel.")
+                return await ctx.author.voice.channel.connect()
+
+            await ctx.send(embed=Embed(title='',
+                                       description="You are not connected to a voice channel.",
+                                       color=red))
+            raise commands.CommandError("Author not connected to a voice channel.")
 
     @commands.command(aliases=['stfu'])
     async def pause(self, ctx):
@@ -349,9 +344,10 @@ class Music(commands.Cog):
         await ctx.send(embed=Embed(title='',
                                    description='Resuming ⏯️',
                                    color=green))
+
         if ctx.invoked_with in ['keep_singing_mother_fucker', 'ksmf']:
             await ctx.message.add_reaction('✅')
-            return await ctx.message.add_reaction('🥲')
+            return await ctx.message.add_reaction('🥲')  # :smiling_face_with_tear:
 
         await ctx.message.add_reaction('⏯️')
 
@@ -363,11 +359,14 @@ class Music(commands.Cog):
         if not vc or not vc.is_connected():
             return await ctx.send(embed=NOT_CONNECTED_EMBED)
 
+        if not vc.is_playing():
+            return await ctx.send(embed=NOT_PLAYING_EMBED)
+
         prev = ctx.voice_client.source.volume * 100
         if volume < 0:
             return await ctx.send(embed=Embed(title='',
                                               description=f'Volume is currently at **{prev:.0f}%**',
-                                              color=green))
+                                              color=blue))
 
         emoji = [['🔉', '🔊'][prev < volume], '🔇'][volume == 0]
         ctx.voice_client.source.volume = volume / 100
@@ -431,13 +430,12 @@ class Music(commands.Cog):
         """Moves a song from one place to another in the queue"""
         if not type(index) == str or not index.isdigit() or int(index) < 1:
             return await ctx.send(embed=Embed(title='',
-                                              description=f'`Invalid index [{index}].`',
+                                              description=f'Invalid index [{index}].',
                                               color=red))
 
         if not track_name:
-            track_name = ' '.join(track_name)
             return await ctx.send(embed=Embed(title='',
-                                              description=f'`Invalid track name [{track_name}].`',
+                                              description=f'Track name must not be empty.',
                                               color=red))
 
         vc = ctx.voice_client
@@ -539,6 +537,8 @@ class Music(commands.Cog):
         player = self.get_player(ctx)
         player.queue = asyncio.Queue()
 
+        await self.queue_info(ctx)
+
 
 """==================main runner code start=================="""
 
@@ -565,14 +565,11 @@ async def on_message(message):
     await bot.process_commands(message)
 
 
-load_dotenv()
-# Get the API token from the .env file.
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 bot.add_cog(Music())
 bot.add_cog(Help(bot))
 bot.run(DISCORD_TOKEN)
 
-# TODO: fix nightcore, tones
+
 # TODO: find out how to load on a server or something
 # TODO: proper documentation, placing, kruvit-ness
 # TODO: check that not stupid
