@@ -476,24 +476,25 @@ class Music(commands.Cog):
 
         player = self.get_player(ctx)
         if pos is None:
-            player.queue._queue.pop()
+            removed = player.queue._queue.pop()
+            return await ctx.send(embed=Embed(title='',
+                                              description=f'Removed [{removed}].',
+                                              color=green))
 
-        else:
-            try:
-                s = player.queue._queue[pos - 1]
-                del player.queue._queue[pos - 1]
-                embed = Embed(title='',
-                              description=f'Removed [{s[1]}]',
-                              color=discord.Color.green())
-                await ctx.send(embed=embed)
-                await self.queue_info(ctx)
+        try:
+            s = player.queue._queue[pos - 1]
+            del player.queue._queue[pos - 1]
+            await ctx.send(embed=Embed(title='',
+                                       description=f'Removed [{s[1]}]',
+                                       color=green))
+            await self.queue_info(ctx)
 
-            except Exception as e:
-                embed = Embed(title='',
-                              description=f'Could not find a track for "{pos}"',
-                              color=green)
-                await ctx.send(embed=embed)
-                print('oof :( ', e)
+        except Exception as e:
+            embed = Embed(title='',
+                          description=f'Could not find a track for "{pos}"',
+                          color=red)
+            await ctx.send(embed=embed)
+            print('oof :( ', e)
 
     @commands.command(name='queue', aliases=['q', 'playlist', 'que', 'queueueueueueue'], description='shows the queue')
     async def queue_info(self, ctx):
